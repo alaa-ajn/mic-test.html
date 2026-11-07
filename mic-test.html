@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>مختبر الصوت والقاموس الحقيقي - Fitch API</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: #12121c;
+            color: #f0f0f5;
+            padding: 20px;
+            margin: 0;
+            font-size: 18px;
+        }
+        .container {
+            width: 100%;
+            max-width: 850px;
+            margin: 0 auto;
+            background: #1e1e2d;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        h2 { color: #00d2ff; font-size: 28px; margin-bottom: 10px; }
+        p { color: #c0c0d0; margin-bottom: 25px; font-size: 16px; }
+        .mic-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            width: 95px;
+            height: 95px;
+            border-radius: 50%;
+            font-size: 36px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(255, 71, 87, 0.5);
+            transition: 0.3s;
+            margin-bottom: 25px;
+        }
+        .mic-btn.recording {
+            background: #2ed573;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(46, 213, 115, 0.7); }
+            70% { transform: scale(1.08); box-shadow: 0 0 0 20px rgba(46, 213, 115, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(46, 213, 115, 0); }
+        }
+        .output-box {
+            background: #12121c;
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px dashed #00d2ff;
+            min-height: 80px;
+            text-align: right;
+            font-size: 20px;
+            line-height: 1.8;
+            margin-bottom: 25px;
+        }
+        .label-title {
+            color: #00d2ff;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+            display: block;
+            text-align: right;
+        }
+        table {
+            width: 100%;
+            margin-top: 10px;
+            border-collapse: collapse;
+            font-size: 16px;
+        }
+        th, td {
+            border: 1px solid #44445c;
+            padding: 12px;
+            text-align: center;
+        }
+        th { background: #2a2a3d; color: #00d2ff; font-size: 17px; }
+        td { color: #e0e0f0; }
+        .table-container {
+            max-height: 220px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            border: 1px solid #44445c;
+            border-radius: 8px;
+        }
+        .audio-btn {
+            background: #00d2ff;
+            color: #12121c;
+            border: none;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>مختبر الميكروفون والقاموس البصراوي الحقيقي</h2>
+    <p>يتم سحب كلمات القاموس (`dict.json`) أوتوماتيكياً ومطابقتها مع نطقك الفوري!</p>
+    
+    <button id="micButton" class="mic-btn" onclick="toggleRecording()">🎤</button>
+    
+    <span class="label-title">النتيجة والضبط الصوتي:</span>
+    <div class="output-box" id="speechOutput">جاري تحميل القاموس والانتظار...</div>
+
+    <span class="label-title">جدول التوقيتات الزمنية وسجل الصوت:</span>
+    <div class="table-container">
+        <table id="timelineTable">
+            <thead>
+                <tr>
+                    <th>الوقت</th>
+                    <th>النص المنطوق</th>
+                    <th>المطابقة الصوتية</th>
+                    <th>إعادة سماع الصوت</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- السجلات -->
+            </tbody>
+        </table>
+    </div>
+
+    <span class="label-title" id="dictTitle">القاموس المسحوب (dict.json):</span>
+    <div class="table-container">
+        <table id="testDictTable">
+            <thead>
+                <tr>
+                    <th>الكلمة العراقية</th>
+                    <th>الضبط الصوتي (Phonetic)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- يتم تعبئتها من ملف dict.json الحقيقي -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    let loadedDictionary = [];
+    let isRecording = false;
+    let recognition;
+
+    // جلب القاموس الحقيقي من ملف dict.json عبر Fetch API
+    async function fetchRealDictionary() {
+        try {
+            let response = await fetch('dict.json');
+            if (response.ok) {
+                loadedDictionary = await response.json();
+                document.getElementById("speechOutput").innerHTML = "تم سحب القاموس الحقيقي بنجاح! 🥳 اضغط الميكروفون وتكلم.";
+                updateDictTable();
+            } else {
+                throw new Error("فشل الاتصال بالملف");
+            }
+        } catch (error) {
+            document.getElementById("speechOutput").innerHTML = "⚠️ تنبيه: تأكد من تشغيل السيرفر المحلي ليعمل Fetch ملف dict.json بنجاح.";
+            // قاموس احتياطي طارئ
+            loadedDictionary = [
+                {"iraqi": "شاي", "phonetic": "chay"},
+                {"iraqi": "چاي", "phonetic": "chay"},
+                {"iraqi": "جيب", "phonetic": "geeb"},
+                {"iraqi": "گمر", "phonetic": "gamar"}
+            ];
+            updateDictTable();
+        }
+    }
+
+    function updateDictTable() {
+        let tbody = document.querySelector("#testDictTable tbody");
+        tbody.innerHTML = "";
+        document.getElementById("dictTitle").innerText = `القاموس المسحوب (dict.json) - إجمالي الكلمات: ${loadedDictionary.length}`;
+        
+        loadedDictionary.forEach(item => {
+            tbody.innerHTML += `<tr><td>${item.iraqi}</td><td>${item.phonetic}</td></tr>`;
+        });
+    }
+
+    // إعداد الـ Speech Recognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.lang = 'ar-IQ';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = function() {
+            isRecording = true;
+            document.getElementById("micButton").classList.add("recording");
+            document.getElementById("speechOutput").innerHTML = "جاري الاستماع لصوتك.. احكي الآن 🎙️";
+        };
+
+        recognition.onresult = function(event) {
+            let spokenText = event.results[0][0].transcript;
+            let now = new Date();
+            let timeString = now.toLocaleTimeString() + "." + String(now.getMilliseconds()).padStart(3, '0');
+            
+            processAndCorrectText(spokenText, timeString);
+        };
+
+        recognition.onerror = function(event) {
+            document.getElementById("speechOutput").innerHTML = "خطأ في الاستماع: " + event.error;
+            stopRecordingState();
+        };
+
+        recognition.onend = function() {
+            stopRecordingState();
+        };
+    } else {
+        alert("متصفحك لا يدعم التعرف الصوتي المباشر.");
+    }
+
+    function toggleRecording() {
+        if (!recognition) return;
+        if (!isRecording) {
+            recognition.start();
+        } else {
+            recognition.stop();
+        }
+    }
+
+    function stopRecordingState() {
+        isRecording = false;
+        document.getElementById("micButton").classList.remove("recording");
+    }
+
+    function playAudioConfirmation(textToSpeak) {
+        if ('speechSynthesis' in window) {
+            let utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.lang = 'ar-SA';
+            utterance.rate = 0.9;
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    function processAndCorrectText(text, timestamp) {
+        let correctedText = text;
+        let matchedCount = 0;
+
+        // مطابقة الكلمات المنطوقة مع القاموس الحقيقي المسحوب
+        loadedDictionary.forEach(item => {
+            if (item.iraqi && item.phonetic) {
+                let regex = new RegExp(item.iraqi, "g");
+                if (text.includes(item.iraqi)) {
+                    let matches = text.match(regex);
+                    if (matches) {
+                        matchedCount += matches.length;
+                    }
+                    correctedText = correctedText.replace(regex, `<span style="color: #00d2ff; font-weight: bold;">[${item.phonetic}]</span>`);
+                }
+            }
+        });
+
+        document.getElementById("speechOutput").innerHTML = `
+            <strong style="color: #ff4757;">التوقيت:</strong> ${timestamp} <br>
+            <strong>ما قمت بنطقه:</strong> ${text} <br>
+            <strong>الكلمات المطابقة من القاموس:</strong> ${matchedCount} كلمة <br>
+            <strong>النتيجة بعد الضبط الصوتي:</strong><br>${correctedText}
+        `;
+
+        playAudioConfirmation(text);
+
+        let timelineTbody = document.querySelector("#timelineTable tbody");
+        timelineTbody.innerHTML = `
+            <tr>
+                <td style="color: #ff4757; font-weight: bold;">${timestamp}</td>
+                <td>${text}</td>
+                <td style="color: #00d2ff; font-weight: bold;">${matchedCount} كلمة</td>
+                <td><button class="audio-btn" onclick="playAudioConfirmation('${text}')">🔊 استماع</button></td>
+            </tr>
+        ` + timelineTbody.innerHTML;
+    }
+
+    // بدء سحب القاموس الحقيقي فور فتح الصفحة
+    fetchRealDictionary();
+</script>
+
+</body>
+</html>
