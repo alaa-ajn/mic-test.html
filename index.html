@@ -145,56 +145,46 @@
     let isRecording = false;
     let recognition;
 
-    // جلب القاموس الحقيقي من ملف dict.json عبر Fetch API
+    // القاموس البديل أو المؤقت (Fallback Dictionary) كاحتياط فوري
+    const fallbackDictionary = [
+      { "iraqi": "شاي", "phonetic": "chay" },
+      { "iraqi": "جاي", "phonetic": "chay" },
+      { "iraqi": "جيب", "phonetic": "geeb" },
+      { "iraqi": "اريد", "phonetic": "areed" },
+      { "iraqi": "شلونك", "phonetic": "shlonak" }
+    ];
+
+    // جلب القاموس الحقيقي من ملف dict.json عبر Fetch API مع دعم البديل
     async function fetchRealDictionary() {
         try {
             let response = await fetch('dict.json');
             if (response.ok) {
                 loadedDictionary = await response.json();
-                document.getElementById("speechOutput").innerHTML = "تم سحب القاموس الحقيقي بنجاح! 🥳 اضغط الميكروفون وتكلم.";
-                updateDictTable();
+                console.log("تم سحب القاموس الرئيسي بنجاح:", loadedDictionary.length);
             } else {
                 throw new Error("فشل الاتصال بالملف");
             }
         } catch (error) {
-            document.getElementById("speechOutput").innerHTML = "⚠️ تنبيه: تأكد من تشغيل السيرفر المحلي ليعمل Fetch ملف dict.json بنجاح.";
-            // قاموس احتياطي طارئ
-// القاموس البديل أو المؤقت (Fallback Dictionary) كاحتياط فوري
-let fallbackDictionary = [
-  { "iraqi": "شاي", "phonetic": "chay" },
-  { "iraqi": "جاي", "phonetic": "chay" },
-  { "iraqi": "جيب", "phonetic": "geeb" },
-  { "iraqi": "اريد", "phonetic": "areed" },
-  { "iraqi": "شلونك", "phonetic": "shlonak" }
-];
-
-let dictionaryData = [];
-
-// دالة جلب القاموس مع الاعتماد على القاموس البديل عند الحاجة
-async function loadDictionary() {
-    try {
-        let response = await fetch('dict.json');
-        if (!response.ok) {
-            throw new Error("فشل سحب الملف الخارجي");
+            console.warn("تم التحويل تلقائياً إلى القاموس البديل والمؤقت:", error);
+            loadedDictionary = fallbackDictionary;
         }
-        dictionaryData = await response.json();
-        console.log("تم سحب القاموس الرئيسي بنجاح، إجمالي الكلمات:", dictionaryData.length);
-    } catch (error) {
-        console.warn("صار خلل بالـ fetch، تم التحويل تلقائياً إلى القاموس البديل والمؤقت:", error);
-        // استخدام القاموس البديل كاحتياط
-        dictionaryData = fallbackDictionary;
+
+        document.getElementById("speechOutput").innerHTML = "تم تحميل القاموس بنجاح! 🥳 اضغط الميكروفون وتكلم.";
+        updateDictTable();
     }
 
-    // تحديث عنوان الواجهة بعدد الكلمات (سواء الرئيسي أو البديل)
-    let dictTitle = document.getElementById("dictTitle");
-    if (dictTitle) {
-        dictTitle.innerText = `القاموس المسحوب (dict.json) - إجمالي الكلمات: ${dictionaryData.length}`;
+    // تحديث جدول عرض القاموس بالواجهة
+    function updateDictTable() {
+        let tbody = document.querySelector("#testDictTable tbody");
+        tbody.innerHTML = "";
+        loadedDictionary.forEach(item => {
+            tbody.innerHTML += `<tr><td>${item.iraqi}</td><td>${item.phonetic}</td></tr>`;
+        });
+        let dictTitle = document.getElementById("dictTitle");
+        if (dictTitle) {
+            dictTitle.innerText = `القاموس المسحوب (dict.json) - إجمالي الكلمات: ${loadedDictionary.length}`;
+        }
     }
-}
-
-// تشغيل الدالة فور تحميل الصفحة
-loadDictionary();
-
 
     // إعداد الـ Speech Recognition
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -257,16 +247,17 @@ loadDictionary();
         let correctedText = text;
         let matchedCount = 0;
 
-        // مطابقة الكلمات المنطوقة مع القاموس الحقيقي المسحوب
+        // مطابقة الكلمات المنطوقة مع الكلمة العراقية الأصلية (item.iraqi) وليس الإنجليزية
         loadedDictionary.forEach(item => {
-            if (item.iraqi && item.phonetic) {
+            if (item.iraqi) {
                 let regex = new RegExp(item.iraqi, "g");
                 if (text.includes(item.iraqi)) {
                     let matches = text.match(regex);
                     if (matches) {
                         matchedCount += matches.length;
                     }
-                    correctedText = correctedText.replace(regex, `<span style="color: #00d2ff; font-weight: bold;">[${item.phonetic}]</span>`);
+                    // استبدال الكلمة بالنص العراقي الأصلي بين قوسين
+                    correctedText = correctedText.replace(regex, `<span style="color: #00d2ff; font-weight: bold;">[${item.iraqi}]</span>`);
                 }
             }
         });
@@ -275,7 +266,7 @@ loadDictionary();
             <strong style="color: #ff4757;">التوقيت:</strong> ${timestamp} <br>
             <strong>ما قمت بنطقه:</strong> ${text} <br>
             <strong>الكلمات المطابقة من القاموس:</strong> ${matchedCount} كلمة <br>
-            <strong>النتيجة بعد الضبط الصوتي:</strong><br>${correctedText}
+            <strong>النتيجة بعد الضبط:</strong><br>${correctedText}
         `;
 
         playAudioConfirmation(text);
@@ -293,57 +284,6 @@ loadDictionary();
 
     // بدء سحب القاموس الحقيقي فور فتح الصفحة
     fetchRealDictionary();
-    // دالة المعالجة والاستبدال الذكي للكلمات المطابقة من القاموس
-function processSpokenText(rawText, dictionaryData) {
-    let modifiedText = rawText;
-    let matchCount = 0;
-
-    // فحص كل كلمة بالقاموس وتحويلها إذا طابقت النص المنطوق
-    dictionaryData.forEach(item => {
-        // البحث عن الكلمة العراقية في النص المنطوق واستبدالها بالضبط الصوتي أو التنسيق المطلوب
-        let regex = new RegExp(item.iraqi, 'g');
-        if (regex.test(rawText)) {
-            let matches = rawText.match(regex);
-            matchCount += matches ? matches.length : 0;
-            
-            // استبدال الكلمة بالنص المعمد من القاموس
-  
-            
-           
-            // دالة المعالجة والاستبدال الذكي للكلمات المطابقة من القاموس
-function processSpokenText(rawText, dictionaryData) {
-    let modifiedText = rawText;
-    let matchCount = 0;
-
-    // فحص كل كلمة بالقاموس وتحويلها إذا طابقت النص المنطوق
-    dictionaryData.forEach(item => {
-        // البحث عن الكلمة العراقية في النص المنطوق واستبدالها بالضبط الصوتي أو التنسيق المطلوب
-        let regex = new RegExp(item.iraqi, 'g');
-        if (regex.test(rawText)) {
-            let matches = rawText.match(regex);
-            matchCount += matches ? matches.length : 0;
-            
-            // استبدال الكلمة بالنص المعمد من القاموس
-            modifiedText = modifiedText.replace(regex, `[${item.phonetic}]`);
-        }
-    });
-
-    return {
-        cleanText: modifiedText,
-        count: matchCount
-    };
-}
-
-        }
-        
-    });
-
-    return {
-        cleanText: modifiedText,
-        count: matchCount
-    };
-}
-
 </script>
 
 </body>
