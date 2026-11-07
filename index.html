@@ -159,25 +159,42 @@
         } catch (error) {
             document.getElementById("speechOutput").innerHTML = "⚠️ تنبيه: تأكد من تشغيل السيرفر المحلي ليعمل Fetch ملف dict.json بنجاح.";
             // قاموس احتياطي طارئ
-            loadedDictionary = [
-                {"iraqi": "شاي", "phonetic": "chay"},
-                {"iraqi": "چاي", "phonetic": "chay"},
-                {"iraqi": "جيب", "phonetic": "geeb"},
-                {"iraqi": "گمر", "phonetic": "gamar"}
-            ];
-            updateDictTable();
+// القاموس البديل أو المؤقت (Fallback Dictionary) كاحتياط فوري
+let fallbackDictionary = [
+  { "iraqi": "شاي", "phonetic": "chay" },
+  { "iraqi": "جاي", "phonetic": "chay" },
+  { "iraqi": "جيب", "phonetic": "geeb" },
+  { "iraqi": "اريد", "phonetic": "areed" },
+  { "iraqi": "شلونك", "phonetic": "shlonak" }
+];
+
+let dictionaryData = [];
+
+// دالة جلب القاموس مع الاعتماد على القاموس البديل عند الحاجة
+async function loadDictionary() {
+    try {
+        let response = await fetch('dict.json');
+        if (!response.ok) {
+            throw new Error("فشل سحب الملف الخارجي");
         }
+        dictionaryData = await response.json();
+        console.log("تم سحب القاموس الرئيسي بنجاح، إجمالي الكلمات:", dictionaryData.length);
+    } catch (error) {
+        console.warn("صار خلل بالـ fetch، تم التحويل تلقائياً إلى القاموس البديل والمؤقت:", error);
+        // استخدام القاموس البديل كاحتياط
+        dictionaryData = fallbackDictionary;
     }
 
-    function updateDictTable() {
-        let tbody = document.querySelector("#testDictTable tbody");
-        tbody.innerHTML = "";
-        document.getElementById("dictTitle").innerText = `القاموس المسحوب (dict.json) - إجمالي الكلمات: ${loadedDictionary.length}`;
-        
-        loadedDictionary.forEach(item => {
-            tbody.innerHTML += `<tr><td>${item.iraqi}</td><td>${item.phonetic}</td></tr>`;
-        });
+    // تحديث عنوان الواجهة بعدد الكلمات (سواء الرئيسي أو البديل)
+    let dictTitle = document.getElementById("dictTitle");
+    if (dictTitle) {
+        dictTitle.innerText = `القاموس المسحوب (dict.json) - إجمالي الكلمات: ${dictionaryData.length}`;
     }
+}
+
+// تشغيل الدالة فور تحميل الصفحة
+loadDictionary();
+
 
     // إعداد الـ Speech Recognition
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
