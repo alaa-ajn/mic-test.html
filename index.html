@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>مختبر الصوت والقاموس الحقيقي - Fitch API</title>
+    <title>مختبر الصوت والقاموس البصراوي الحقيقي</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, sans-serif;
@@ -145,35 +145,25 @@
     let isRecording = false;
     let recognition;
 
-    // القاموس البديل أو المؤقت (Fallback Dictionary) كاحتياط فوري
-    const fallbackDictionary = [
-      { "iraqi": "شاي", "phonetic": "chay" },
-      { "iraqi": "جاي", "phonetic": "chay" },
-      { "iraqi": "جيب", "phonetic": "geeb" },
-      { "iraqi": "اريد", "phonetic": "areed" },
-      { "iraqi": "شلونك", "phonetic": "shlonak" }
-    ];
-
-    // جلب القاموس الحقيقي من ملف dict.json عبر Fetch API مع دعم البديل
+    // جلب القاموس الحقيقي بنفس طريقة صفحة الفحص الناجحة
     async function fetchRealDictionary() {
         try {
             let response = await fetch('dict.json');
             if (response.ok) {
                 loadedDictionary = await response.json();
-                console.log("تم سحب القاموس الرئيسي بنجاح:", loadedDictionary.length);
+                console.log("تم سحب القاموس بنجاح، إجمالي الكلمات:", loadedDictionary.length);
+                document.getElementById("speechOutput").innerHTML = "تم تحميل القاموس الشامل بنجاح! 🥳 اضغط الميكروفون وتكلم.";
+                updateDictTable();
             } else {
-                throw new Error("فشل الاتصال بالملف");
+                throw new Error("فشل الاتصال بملف dict.json");
             }
         } catch (error) {
-            console.warn("تم التحويل تلقائياً إلى القاموس البديل والمؤقت:", error);
-            loadedDictionary = fallbackDictionary;
+            console.error("خطأ في السحب:", error);
+            document.getElementById("speechOutput").innerHTML = "⚠️ تنبيه: تعذر سحب ملف dict.json، تأكد من وجوده بالمستودع.";
         }
-
-        document.getElementById("speechOutput").innerHTML = "تم تحميل القاموس بنجاح! 🥳 اضغط الميكروفون وتكلم.";
-        updateDictTable();
     }
 
-    // تحديث جدول عرض القاموس بالواجهة
+    // تحديث جدول القاموس في الواجهة
     function updateDictTable() {
         let tbody = document.querySelector("#testDictTable tbody");
         tbody.innerHTML = "";
@@ -186,7 +176,7 @@
         }
     }
 
-    // إعداد الـ Speech Recognition
+    // إعداد التعرف الصوتي (Speech Recognition) بلهجة ar-IQ
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         recognition = new SpeechRecognition();
@@ -243,11 +233,11 @@
         }
     }
 
+    // دالة المطابقة واستبدال الكلمات العراقية الأصلية
     function processAndCorrectText(text, timestamp) {
         let correctedText = text;
         let matchedCount = 0;
 
-        // مطابقة الكلمات المنطوقة مع الكلمة العراقية الأصلية (item.iraqi) وليس الإنجليزية
         loadedDictionary.forEach(item => {
             if (item.iraqi) {
                 let regex = new RegExp(item.iraqi, "g");
@@ -256,7 +246,7 @@
                     if (matches) {
                         matchedCount += matches.length;
                     }
-                    // استبدال الكلمة بالنص العراقي الأصلي بين قوسين
+                    // استبدال الكلمة بالكلمة العراقية الأصلية بين قوسين
                     correctedText = correctedText.replace(regex, `<span style="color: #00d2ff; font-weight: bold;">[${item.iraqi}]</span>`);
                 }
             }
@@ -282,7 +272,7 @@
         ` + timelineTbody.innerHTML;
     }
 
-    // بدء سحب القاموس الحقيقي فور فتح الصفحة
+    // بدء سحب القاموس فور فتح الصفحة
     fetchRealDictionary();
 </script>
 
