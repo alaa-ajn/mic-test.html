@@ -276,6 +276,30 @@
 
     // بدء سحب القاموس الحقيقي فور فتح الصفحة
     fetchRealDictionary();
+    // دالة المعالجة والاستبدال الذكي للكلمات المطابقة من القاموس
+function processSpokenText(rawText, dictionaryData) {
+    let modifiedText = rawText;
+    let matchCount = 0;
+
+    // فحص كل كلمة بالقاموس وتحويلها إذا طابقت النص المنطوق
+    dictionaryData.forEach(item => {
+        // البحث عن الكلمة العراقية في النص المنطوق واستبدالها بالضبط الصوتي أو التنسيق المطلوب
+        let regex = new RegExp(item.iraqi, 'g');
+        if (regex.test(rawText)) {
+            let matches = rawText.match(regex);
+            matchCount += matches ? matches.length : 0;
+            
+            // استبدال الكلمة بالنص المعمد من القاموس
+            modifiedText = modifiedText.replace(regex, `[${item.phonetic}]`);
+        }
+    });
+
+    return {
+        cleanText: modifiedText,
+        count: matchCount
+    };
+}
+
 </script>
 
 </body>
